@@ -183,8 +183,20 @@ def get_vectors():
             if col != 'id':  # Keep ID intact
                 df[col] = df[col].apply(lambda x: x.replace('\n', ' ').replace('\r', ' ') if isinstance(x, str) else x)
         
+        # 3. Handle numeric NaN values explicitly (important fix)
+        # Instead of using fillna(None), we'll handle NaN values during JSON serialization
+        
         # Convert to list of dictionaries for JSON response
-        vectors_data = df.to_dict(orient='records')
+        # Use pandas json_normalize to handle NaN values properly
+        df_dict = df.to_dict(orient='records')
+        
+        # Replace NaN values with None in the dictionary
+        for record in df_dict:
+            for key, value in record.items():
+                if isinstance(value, float) and np.isnan(value):
+                    record[key] = None
+        
+        vectors_data = df_dict
         
         # Validate a sample of the data
         sample = vectors_data[:1] if vectors_data else []
