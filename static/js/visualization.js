@@ -28,6 +28,13 @@ document.addEventListener('DOMContentLoaded', function() {
     resetViewButton.addEventListener('click', resetView);
     applyFiltersButton.addEventListener('click', applyFilters);
     resetFiltersButton.addEventListener('click', resetFilters);
+    
+    // Add window resize handler for responsive behavior
+    window.addEventListener('resize', function() {
+        if (plotlyPlot) {
+            Plotly.Plots.resize(plotlyPlot);
+        }
+    });
 });
 
 // Fetch vector data from the API
@@ -251,7 +258,8 @@ function createVisualization(data) {
                 eye: { x: 1.5, y: 1.5, z: 1.5 }
             }
         },
-        hovermode: 'closest'
+        hovermode: 'closest',
+        autosize: true
     };
     
     // Plot options
@@ -259,6 +267,7 @@ function createVisualization(data) {
         responsive: true,
         displayModeBar: true,
         displaylogo: false,
+        scrollZoom: true,
         modeBarButtonsToRemove: [
             'lasso2d', 'select2d', 'autoScale2d', 'hoverClosestCartesian',
             'hoverCompareCartesian', 'toggleSpikelines'
