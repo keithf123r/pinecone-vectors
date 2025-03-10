@@ -2,6 +2,10 @@ import os
 import json
 import pandas as pd
 from pinecone import Pinecone
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Get credentials from environment variables
 api_key = os.environ.get('PINECONE_API_KEY')
