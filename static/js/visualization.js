@@ -56,13 +56,8 @@ function createVisualization(data) {
     
     // Create hover text
     const hoverText = data.map(d => {
-        let text = `ID: ${d.id}<br>`;
-        // Add first few metadata fields if available
-        const metadataKeys = Object.keys(d).filter(key => !['id', 'x', 'y', 'z'].includes(key)).slice(0, 3);
-        metadataKeys.forEach(key => {
-            text += `${key}: ${d[key]}<br>`;
-        });
-        return text;
+        // Only show the header (ID) as label
+        return `ID: ${d.id}`;
     });
     
     // Create the scatter3d trace
