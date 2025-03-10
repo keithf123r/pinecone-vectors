@@ -6,6 +6,7 @@ from pinecone import Pinecone
 from sklearn.preprocessing import MinMaxScaler
 import umap
 from dotenv import load_dotenv
+import json
 
 
 # Load environment variables
@@ -152,25 +153,51 @@ def get_vectors():
     try:
         # Check if we have a cached CSV file
         if os.path.exists('pinecone_embedding_3d.csv'):
-            df = pd.read_csv('pinecone_embedding_3d.csv')
+            print("Reading from cached CSV file")
+            # Use quoting to handle fields with newlines
+            df = pd.read_csv('pinecone_embedding_3d.csv', quotechar='"', escapechar='\\')
+            print(f"CSV loaded with {len(df)} rows")
+            
+            # Check for problematic columns or values
+            print(f"DataFrame columns: {df.columns.tolist()}")
+            
+            # Check for NaN values
+            nan_counts = df.isna().sum().sum()
+            print(f"Total NaN values in DataFrame: {nan_counts}")
         else:
             # Fetch and process vectors
             df = fetch_and_process_vectors()
             if df is not None:
-                # Save to CSV for caching
-                df.to_csv('pinecone_embedding_3d.csv', index=False)
+                # Save to CSV for caching with proper quoting
+                df.to_csv('pinecone_embedding_3d.csv', index=False, quoting=1)  # QUOTE_ALL
             else:
                 return jsonify({'error': 'No vectors found'}), 404
         
-        # Handle NaN values before converting to JSON
-        df = df.fillna(value=None)  # Replace NaN with None (becomes null in JSON)
+        # Clean the DataFrame
+        # 1. Replace NaN values with None (becomes null in JSON)
+        df = df.where(pd.notnull(df), None)
+        
+        # 2. Clean text fields to ensure they're valid strings
+        for col in df.select_dtypes(include=['object']).columns:
+            # Replace any problematic characters or newlines in string columns
+            if col != 'id':  # Keep ID intact
+                df[col] = df[col].apply(lambda x: x.replace('\n', ' ').replace('\r', ' ') if isinstance(x, str) else x)
         
         # Convert to list of dictionaries for JSON response
         vectors_data = df.to_dict(orient='records')
+        
+        # Validate a sample of the data
+        sample = vectors_data[:1] if vectors_data else []
+        print(f"Sample of JSON data: {json.dumps(sample)[:200]}...")
+        
         return jsonify(vectors_data)
     
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error in get_vectors: {str(e)}")
+        print(error_details)
+        return jsonify({'error': str(e), 'details': error_details}), 500
 
 if __name__ == '__main__':
     app.run(debug=True) 
