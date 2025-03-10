@@ -6,7 +6,7 @@ from pinecone import Pinecone
 from sklearn.preprocessing import MinMaxScaler
 import umap
 from dotenv import load_dotenv
-import json
+
 
 # Load environment variables
 load_dotenv()
