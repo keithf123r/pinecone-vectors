@@ -162,6 +162,9 @@ def get_vectors():
             else:
                 return jsonify({'error': 'No vectors found'}), 404
         
+        # Handle NaN values before converting to JSON
+        df = df.fillna(value=None)  # Replace NaN with None (becomes null in JSON)
+        
         # Convert to list of dictionaries for JSON response
         vectors_data = df.to_dict(orient='records')
         return jsonify(vectors_data)
