@@ -212,8 +212,8 @@ function createVisualization(data) {
     
     // Create hover text
     const hoverText = data.map(d => {
-        // Only show the header (ID) as label
-        return `ID: ${d.id}`;
+        // Use the header field as label if it exists, otherwise use ID
+        return d.header ? `Header: ${d.header}` : `ID: ${d.id}`;
     });
     
     // Create the scatter3d trace
@@ -312,11 +312,14 @@ function displayVectorInfo(vector) {
         return;
     }
     
-    let html = `<p><strong>ID:</strong> ${vector.id}</p>`;
+    // Start with header if available, otherwise ID
+    let html = vector.header 
+        ? `<p><strong>Header:</strong> ${vector.header}</p><p><strong>ID:</strong> ${vector.id}</p>`
+        : `<p><strong>ID:</strong> ${vector.id}</p>`;
     
     // Add all metadata fields
     Object.keys(vector).forEach(key => {
-        if (!['id', 'x', 'y', 'z'].includes(key)) {
+        if (!['id', 'x', 'y', 'z', 'header'].includes(key)) {
             html += `<p><strong>${key}:</strong> ${vector[key]}</p>`;
         }
     });
