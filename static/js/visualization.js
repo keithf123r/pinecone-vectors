@@ -1,7 +1,10 @@
 // Global variables
 let plotlyPlot = null;
 let vectorData = [];
+let filteredData = [];
 let selectedPoint = null;
+let metadataFields = [];
+let activeFilters = {};
 
 // DOM elements
 const visualizationContainer = document.getElementById('visualization');
@@ -10,6 +13,9 @@ const opacitySlider = document.getElementById('opacity');
 const resetViewButton = document.getElementById('reset-view');
 const vectorInfoDiv = document.getElementById('vector-info');
 const statsDiv = document.getElementById('stats');
+const filtersContainer = document.getElementById('filters-container');
+const applyFiltersButton = document.getElementById('apply-filters');
+const resetFiltersButton = document.getElementById('reset-filters');
 
 // Initialize the visualization
 document.addEventListener('DOMContentLoaded', function() {
@@ -20,6 +26,8 @@ document.addEventListener('DOMContentLoaded', function() {
     pointSizeSlider.addEventListener('input', updatePointSize);
     opacitySlider.addEventListener('input', updateOpacity);
     resetViewButton.addEventListener('click', resetView);
+    applyFiltersButton.addEventListener('click', applyFilters);
+    resetFiltersButton.addEventListener('click', resetFilters);
 });
 
 // Fetch vector data from the API
@@ -33,8 +41,17 @@ function fetchVectorData() {
         })
         .then(data => {
             vectorData = data;
-            createVisualization(vectorData);
-            updateStats(vectorData);
+            filteredData = [...vectorData]; // Create a copy for filtering
+            
+            // Extract metadata fields for filters
+            extractMetadataFields();
+            
+            // Create filters UI
+            createFiltersUI();
+            
+            // Create visualization with all data
+            createVisualization(filteredData);
+            updateStats(filteredData);
         })
         .catch(error => {
             console.error('Error fetching vector data:', error);
@@ -44,6 +61,145 @@ function fetchVectorData() {
                 </div>
             `;
         });
+}
+
+// Extract metadata fields from vector data
+function extractMetadataFields() {
+    // Get all unique keys from the data
+    const allKeys = new Set();
+    vectorData.forEach(vector => {
+        Object.keys(vector).forEach(key => {
+            if (!['id', 'x', 'y', 'z'].includes(key)) {
+                allKeys.add(key);
+            }
+        });
+    });
+    
+    metadataFields = Array.from(allKeys);
+    
+    // Initialize active filters
+    metadataFields.forEach(field => {
+        activeFilters[field] = [];
+    });
+}
+
+// Create filters UI based on metadata fields
+function createFiltersUI() {
+    if (metadataFields.length === 0) {
+        filtersContainer.innerHTML = '<p>No metadata fields available for filtering</p>';
+        return;
+    }
+    
+    let filtersHTML = '';
+    
+    // Create filter groups for each metadata field
+    metadataFields.forEach(field => {
+        // Get unique values for this field
+        const values = new Set();
+        vectorData.forEach(vector => {
+            if (vector[field] !== undefined && vector[field] !== null) {
+                values.add(String(vector[field]));
+            }
+        });
+        
+        const uniqueValues = Array.from(values).sort();
+        
+        // Only create filter if there are values and not too many
+        if (uniqueValues.length > 0 && uniqueValues.length <= 50) {
+            filtersHTML += `
+                <div class="filter-group">
+                    <label class="filter-label">${field}</label>
+                    <input type="text" class="filter-search" placeholder="Search ${field}..." 
+                           onkeyup="filterOptions('${field}', this.value)">
+                    <div class="filter-options" id="filter-options-${field}">
+            `;
+            
+            uniqueValues.forEach(value => {
+                filtersHTML += `
+                    <div class="filter-checkbox">
+                        <input type="checkbox" id="${field}-${value}" name="${field}" value="${value}">
+                        <label for="${field}-${value}">${value}</label>
+                    </div>
+                `;
+            });
+            
+            filtersHTML += `
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    if (filtersHTML) {
+        filtersContainer.innerHTML = filtersHTML;
+    } else {
+        filtersContainer.innerHTML = '<p>No suitable fields for filtering</p>';
+    }
+}
+
+// Filter options in a filter group
+function filterOptions(field, searchText) {
+    const optionsContainer = document.getElementById(`filter-options-${field}`);
+    const options = optionsContainer.querySelectorAll('.filter-checkbox');
+    
+    searchText = searchText.toLowerCase();
+    
+    options.forEach(option => {
+        const label = option.querySelector('label').textContent.toLowerCase();
+        if (label.includes(searchText)) {
+            option.style.display = '';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+}
+
+// Make filterOptions globally accessible
+window.filterOptions = filterOptions;
+
+// Apply filters to the data
+function applyFilters() {
+    // Collect active filters
+    metadataFields.forEach(field => {
+        const checkboxes = document.querySelectorAll(`input[name="${field}"]:checked`);
+        activeFilters[field] = Array.from(checkboxes).map(cb => cb.value);
+    });
+    
+    // Filter the data
+    filteredData = vectorData.filter(vector => {
+        // Check if vector passes all active filters
+        return Object.entries(activeFilters).every(([field, values]) => {
+            // If no values selected for this field, pass all vectors
+            if (values.length === 0) return true;
+            
+            // Check if vector's field value is in the selected values
+            return values.includes(String(vector[field]));
+        });
+    });
+    
+    // Update visualization with filtered data
+    createVisualization(filteredData);
+    updateStats(filteredData);
+}
+
+// Reset all filters
+function resetFilters() {
+    // Uncheck all checkboxes
+    document.querySelectorAll('.filter-checkbox input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    
+    // Clear active filters
+    metadataFields.forEach(field => {
+        activeFilters[field] = [];
+    });
+    
+    // Reset to all data
+    filteredData = [...vectorData];
+    
+    // Update visualization
+    createVisualization(filteredData);
+    updateStats(filteredData);
 }
 
 // Create the 3D visualization
@@ -119,7 +275,7 @@ function createVisualization(data) {
     visualizationContainer.on('plotly_click', function(data) {
         const point = data.points[0];
         const index = point.customdata;
-        selectedPoint = vectorData[index];
+        selectedPoint = filteredData[index];
         displayVectorInfo(selectedPoint);
     });
 }
@@ -177,6 +333,7 @@ function displayVectorInfo(vector) {
 // Update statistics
 function updateStats(data) {
     const totalVectors = data.length;
+    const totalOriginal = vectorData.length;
     
     // Calculate basic statistics
     const xValues = data.map(d => d.x);
@@ -193,7 +350,7 @@ function updateStats(data) {
     
     // Display statistics
     statsDiv.innerHTML = `
-        <p><strong>Total Vectors:</strong> ${totalVectors}</p>
+        <p><strong>Vectors Shown:</strong> ${totalVectors} of ${totalOriginal}</p>
         <p><strong>X Mean:</strong> ${xMean.toFixed(4)} (±${xStd.toFixed(4)})</p>
         <p><strong>Y Mean:</strong> ${yMean.toFixed(4)} (±${yStd.toFixed(4)})</p>
         <p><strong>Z Mean:</strong> ${zMean.toFixed(4)} (±${zStd.toFixed(4)})</p>
@@ -202,11 +359,13 @@ function updateStats(data) {
 
 // Helper function to calculate mean
 function mean(values) {
+    if (values.length === 0) return 0;
     return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 // Helper function to calculate standard deviation
 function standardDeviation(values) {
+    if (values.length === 0) return 0;
     const avg = mean(values);
     const squareDiffs = values.map(value => Math.pow(value - avg, 2));
     const avgSquareDiff = mean(squareDiffs);
