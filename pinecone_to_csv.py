@@ -46,7 +46,7 @@ if len(all_ids) == 0:
     exit()
 
 # Fetch vectors in batches
-batch_size = 100
+batch_size = 1000
 all_records = []
 all_vectors = []
 vector_ids = []
