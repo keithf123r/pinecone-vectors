@@ -35,6 +35,41 @@ document.addEventListener('DOMContentLoaded', function() {
             Plotly.Plots.resize(plotlyPlot);
         }
     });
+    
+    // Dark mode toggle functionality
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    const darkModeIcon = darkModeToggle.querySelector('i');
+    
+    // Initialize icon based on current mode
+    if (document.body.classList.contains('dark-mode')) {
+        darkModeIcon.classList.remove('fa-moon');
+        darkModeIcon.classList.add('fa-sun');
+    }
+    
+    darkModeToggle.addEventListener('click', function() {
+        // Toggle dark mode class on document body
+        document.body.classList.toggle('dark-mode');
+        
+        // Toggle icon between moon and sun
+        darkModeIcon.classList.toggle('fa-moon');
+        darkModeIcon.classList.toggle('fa-sun');
+        
+        // Save preference to localStorage
+        const isDarkMode = document.body.classList.contains('dark-mode');
+        localStorage.setItem('darkMode', isDarkMode);
+        
+        // Update the plot layout for dark mode if visualization exists
+        if (plotlyPlot) {
+            const newLayout = {
+                paper_bgcolor: isDarkMode ? '#333' : '#fff',
+                plot_bgcolor: isDarkMode ? '#333' : '#fff',
+                font: {
+                    color: isDarkMode ? '#f5f5f5' : '#333'
+                }
+            };
+            Plotly.relayout(plotlyPlot, newLayout);
+        }
+    });
 });
 
 // Fetch vector data from the API
@@ -247,9 +282,17 @@ function createVisualization(data) {
         customdata: data.map((d, i) => i)  // Store index for click events
     };
     
+    // Check if dark mode is active
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    
     // Layout configuration
     const layout = {
         margin: { l: 0, r: 0, b: 0, t: 0 },
+        paper_bgcolor: isDarkMode ? '#333' : '#fff',
+        plot_bgcolor: isDarkMode ? '#333' : '#fff',
+        font: {
+            color: isDarkMode ? '#f5f5f5' : '#333'
+        },
         scene: {
             xaxis: { title: 'X' },
             yaxis: { title: 'Y' },
@@ -274,19 +317,21 @@ function createVisualization(data) {
         ]
     };
     
-    // Create the plot
-    Plotly.newPlot(visualizationContainer, [trace], layout, config);
-    
-    // Store the plot reference
-    plotlyPlot = visualizationContainer;
-    
-    // Add click event listener
-    visualizationContainer.on('plotly_click', function(data) {
-        const point = data.points[0];
-        const index = point.customdata;
-        selectedPoint = filteredData[index];
-        displayVectorInfo(selectedPoint);
-    });
+    // Create or update the plot
+    if (!plotlyPlot) {
+        Plotly.newPlot(visualizationContainer, [trace], layout, config);
+        plotlyPlot = visualizationContainer;
+        
+        // Add click event for vector selection
+        plotlyPlot.on('plotly_click', function(data) {
+            const point = data.points[0];
+            const index = point.customdata;
+            selectedPoint = filteredData[index];
+            displayVectorInfo(selectedPoint);
+        });
+    } else {
+        Plotly.react(plotlyPlot, [trace], layout, config);
+    }
 }
 
 // Update point size
